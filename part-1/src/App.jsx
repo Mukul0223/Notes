@@ -4,6 +4,7 @@ import Note from "./components/Note"
 import noteService from "./services/notes"
 import Notification from "./components/Notification"
 import Footer from "./components/Footer"
+import loginService from './services/login'
 
 const App = () => {
   
@@ -11,6 +12,9 @@ const App = () => {
   const [newNote, setNewNote] = useState('')
   const [showAll, setShowAll] = useState(true)
   const [errorMessage, setErrorMessage] = useState(null)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [user, setUser] = useState(null)
   
   useEffect(() => {
     noteService
@@ -18,6 +22,15 @@ const App = () => {
       .then(initialNotes => {
         setNotes(initialNotes)
       })
+  }, [])
+
+  useEffect(() => {
+    const loggedUserJSON = window.localStorage.getItem('loggedNoteappUser')
+    if (loggedUserJSON) {
+      const user = JSON.parse(loggedUserJSON)
+      setUser(user)
+      noteService.setToken(user.token)
+    }
   }, [])
 
   const addNote = (event) => {
@@ -52,7 +65,7 @@ const App = () => {
       .then(returnedNote => {
         setNotes(notes.map(note => note.id === id ? returnedNote : note))
       })
-      .catch(error => {
+      .catch(() => {
         setErrorMessage(
           `The Note "${note.content}" was already removed from server`
         )
@@ -63,10 +76,75 @@ const App = () => {
       })
   }
 
+  const handleLogin = async (event) => {
+    event.preventDefault()
+    try {
+      const user = await loginService.login({ username, password })
+
+      window.localStorage.setItem(
+        'loggedNoteappUser', JSON.stringify(user)
+      )
+      
+      noteService.setToken(user.token)
+      setUser(user)
+      setUsername('')
+      setPassword('')
+    } catch {
+      setErrorMessage('wrong credentials')
+      setTimeout(() => {
+        setErrorMessage(null)
+      }, 5000)
+    }
+  }
+
+  const loginForm = () => (
+  <form onSubmit={handleLogin}>
+    <div>
+      <label>
+        username
+        <input type="text" value={username} onChange={({ target }) => setUsername(target.value)} />
+      </label>
+    </div>
+    <div>
+      <label>
+        password
+        <input type="text" value={password} onChange={({ target }) => setPassword(target.value)} />
+      </label>
+    </div>
+    <button type="submit">login</button>
+    </form>
+  )
+
+  const noteForm = () => (
+    <form onSubmit={addNote}>
+      <input value={newNote} onChange={handleNoteChange} />
+      <button type="submit">save</button>
+    </form>
+  )
+
+  // LOGOUT IMPLEMENTATION
+  const handleLogOut = () => {
+    window.localStorage.removeItem('loggedNoteappUser')
+    setUser(null)
+  }
+
+  
   return (
     <div>
       <h1>Notes</h1>
-      <Notification message={errorMessage}/>
+      <Notification message={errorMessage} />
+
+      {!user && loginForm()}
+      {user && (
+        <div>
+          <p>{user.name} logged in</p>
+          {noteForm()}
+          <div>
+            <button onClick={handleLogOut}>log out</button>
+          </div>
+        </div>
+        )}
+      
       <div>
         <button onClick={() => setShowAll(!showAll)}>
           show {showAll ? 'important' : 'all'}
@@ -75,10 +153,7 @@ const App = () => {
       <ul>
         {notesToShow.map(note => <Note key={note.id} note={note} toggleImportance={() => toggleImportanceOf(note.id)} />)}
       </ul>
-      <form onSubmit={addNote}>
-        <input value={newNote} onChange={handleNoteChange} />
-        <button type="submit">save</button>
-      </form>
+      
       <Footer />
     </div>
   )
