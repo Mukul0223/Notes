@@ -1,3 +1,4 @@
 part-1/node_modules/
+part-1/coverage/
 backend/node_modules/
 backend/.env
